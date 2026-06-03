@@ -1,0 +1,44 @@
+pipeline:
+  training:
+    schedule: "cron(0 2 ? * MON *)"  # Weekly Monday 2AM UTC
+    steps:
+      - data_extraction
+      - data_validation
+      - feature_engineering
+      - model_training
+      - model_evaluation
+      - model_registration
+      - approval_gate
+
+  feature_engineering:
+    schedule: "cron(0 */6 * * ? *)"  # Every 6 hours
+    batch_features_lookback_days: 30
+
+  inference:
+    endpoint_name: "completion-rate-predictor"
+    instance_type: ml.m5.xlarge
+    initial_instance_count: 2
+    max_instance_count: 10
+    target_cpu_utilization: 70
+
+aws:
+  region: ap-southeast-1
+  account_id: "${AWS_ACCOUNT_ID}"
+
+  s3:
+    data_bucket: "ride-matching-data-${ENV}"
+    model_bucket: "ride-matching-models-${ENV}"
+
+  sagemaker:
+    role_arn: "arn:aws:iam::${AWS_ACCOUNT_ID}:role/SageMakerExecutionRole"
+    training_instance: ml.m5.2xlarge
+    use_spot_training: true
+    max_wait_time: 7200
+
+  ecr:
+    training_repo: "ride-matching-training"
+    inference_repo: "ride-matching-inference"
+
+  elasticache:
+    node_type: cache.r6g.large
+    num_cache_nodes: 2

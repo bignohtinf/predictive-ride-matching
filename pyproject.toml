@@ -1,0 +1,60 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "predictive-ride-matching"
+version = "0.1.0"
+description = "Completion Rate Prediction for Ride-Hailing Matching"
+requires-python = ">=3.10"
+dependencies = [
+    # ML
+    "lightgbm>=4.0",
+    "xgboost>=2.0",
+    "scikit-learn>=1.3",
+    "optuna>=3.4",
+    # Data
+    "pandas>=2.1",
+    "numpy>=1.25",
+    "pyarrow>=14.0",
+    # AWS
+    "boto3>=1.34",
+    "sagemaker>=2.200",
+    # Feature Store
+    "redis>=5.0",
+    # Monitoring
+    "great-expectations>=0.18",
+    "evidently>=0.4",
+    # Utils
+    "pyyaml>=6.0",
+    "python-dotenv>=1.0",
+    "loguru>=0.7",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4",
+    "pytest-cov>=4.1",
+    "ruff>=0.3",
+    "mypy>=1.8",
+    "pre-commit>=3.6",
+    "jupyter>=1.0",
+    "matplotlib>=3.8",
+    "seaborn>=0.13",
+]
+
+[tool.ruff]
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "N", "W"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-v --cov=src --cov-report=term-missing"
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true

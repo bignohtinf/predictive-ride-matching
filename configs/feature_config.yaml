@@ -1,0 +1,73 @@
+features:
+  # Features available at matching time (NO leakage)
+  safe_features:
+    supply_demand:
+      - num_drivers
+      - num_orders
+      - supply_demand_ratio  # derived: num_drivers / num_orders
+
+    eta:
+      - eta_avg
+      - eta_std
+      - eta_min
+      - eta_inv1
+      - eta_inv10
+      - eta_inv100
+
+    eda:
+      - eda_avg
+      - eda_std
+      - eda_min
+      - eda_inv1
+      - eda_inv10
+      - eda_inv100
+
+    temporal:
+      - hour_of_day
+      - minute_of_hour
+      - rush_hour
+      - hour_sin       # derived: sin(2*pi*hour/24)
+      - hour_cos       # derived: cos(2*pi*hour/24)
+      - day_of_week    # needs extraction from timestamp
+      - is_weekend     # derived
+
+    trip:
+      - travel_mode
+      - distance
+      - total_fee
+
+    behavioral:
+      - user_waiting_time_seconds
+      - fee_per_km            # derived: total_fee / distance
+      - eta_to_distance_ratio # derived: eta_avg / eda_avg
+
+  # Derived features requiring historical data (precomputed batch)
+  batch_features:
+    - driver_historical_completion_rate_7d
+    - driver_historical_completion_rate_30d
+    - driver_cancel_streak
+    - driver_total_trips
+    - driver_experience_days
+    - area_completion_rate_hourly
+    - area_avg_eta
+
+  # Features to EXCLUDE (leakage risk)
+  excluded_features:
+    - est_time_arrival       # post-completion data
+    - est_distance_arrival   # post-completion data
+    - estimate_dropoff_time  # derived from post-completion
+    - total_pay              # may only be calculated on completion
+    - is_completed           # target variable
+
+  categorical_features:
+    - travel_mode
+
+  preprocessing:
+    missing_value_strategy: median_by_group  # group: (travel_mode, hour_of_day)
+    outlier_clip_percentiles: [1, 99]
+    outlier_features:
+      - distance
+      - total_fee
+      - user_waiting_time_seconds
+      - eta_avg
+      - eda_avg

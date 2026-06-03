@@ -1,0 +1,53 @@
+monitoring:
+  data_drift:
+    method: psi  # Population Stability Index
+    features_to_monitor:
+      - eta_avg
+      - eda_avg
+      - num_drivers
+      - num_orders
+      - distance
+      - total_fee
+      - user_waiting_time_seconds
+    thresholds:
+      warning: 0.1
+      critical: 0.2
+    check_interval_hours: 6
+    reference_window_days: 30
+
+  concept_drift:
+    method: auc_monitoring
+    thresholds:
+      warning: 0.02  # AUC drop from baseline
+      critical: 0.03
+    label_delay_hours: 24  # time until completion label is available
+    evaluation_window_hours: 24
+
+  prediction_drift:
+    method: kl_divergence
+    thresholds:
+      warning: 0.05
+      critical: 0.1
+    check_interval_hours: 1
+
+  latency:
+    p50_warning_ms: 30
+    p95_warning_ms: 70
+    p99_critical_ms: 100
+
+  business_kpi:
+    actual_vs_predicted_gap:
+      warning: 0.03
+      critical: 0.05
+    rolling_window_hours: 1
+    sustained_alert_hours: 2
+
+  alerting:
+    channels:
+      - type: sns
+        topic_arn: "arn:aws:sns:${REGION}:${ACCOUNT}:ml-alerts"
+      - type: slack
+        webhook_url: "${SLACK_WEBHOOK}"
+    escalation:
+      warning: [email]
+      critical: [email, slack, pagerduty]
