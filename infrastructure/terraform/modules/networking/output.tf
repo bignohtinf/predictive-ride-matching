@@ -13,3 +13,15 @@ output "private_subnet_ids" {
 output "nat_gateway_id" {
     value = aws_nat_gateway.this.id
 }
+
+output "eks_nodes_security_group_id" {
+  value = aws_security_group.eks_nodes.id
+}
+
+output "redis_security_group_id" {
+  value = aws_security_group.redis.id
+}
+
+output "alb_security_group_id" {
+  value = aws_security_group.alb.id
+}

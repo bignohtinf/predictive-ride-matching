@@ -1,6 +1,5 @@
 variable "project" {
     type = string
-    default = "predictive-ride-matching"
 }
 
 variable "env" {

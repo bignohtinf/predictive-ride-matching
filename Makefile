@@ -10,7 +10,7 @@ generate-data:
 	python scripts/generate_synthetic_data.py --num-rows 5000
 
 train:
-	python -m src.models.train --config configs/model_config.yaml
+	python -m pipelines.training.pipeline
 
 train-tune:
 	python -m src.models.train --config configs/model_config.yaml --tune
@@ -39,6 +39,10 @@ docker-inference:
 	docker build -f infrastructure/docker/Dockerfile.inference -t ride-matching-inference .
 
 # Infrastructure
+# Secrets được load từ .env (gitignored) — copy từ .env.example và điền giá trị
+-include .env
+export
+
 infra-init:
 	cd infrastructure/terraform/environments/$(ENV) && terraform init
 

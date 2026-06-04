@@ -1,0 +1,37 @@
+{{- if .Values.canary.enabled }}
+apiVersion: networking.istio.io/v1beta1
+kind: VirtualService
+metadata:
+  name: {{ include "crp-inference.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  hosts:
+    - {{ .Values.canary.host | quote }}
+  gateways:
+    - {{ .Values.canary.gateway.name }}
+  http:
+    - match:
+        - headers:
+            x-model-version:
+              exact: v2
+      route:
+        - destination:
+            host: {{ include "crp-inference.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local
+            subset: v2
+            port:
+              number: 80
+          weight: 100
+    - route:
+        - destination:
+            host: {{ include "crp-inference.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local
+            subset: v1
+            port:
+              number: 80
+          weight: {{ .Values.canary.traffic.v1Weight }}
+        - destination:
+            host: {{ include "crp-inference.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local
+            subset: v2
+            port:
+              number: 80
+          weight: {{ .Values.canary.traffic.v2Weight }}
+{{- end }}

@@ -1,0 +1,15 @@
+{{- if .Values.pdb.enabled }}
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: {{ include "crp-inference.fullname" . }}
+  namespace: {{ .Values.namespace.name }}
+  labels:
+    {{- include "crp-inference.labels" . | nindent 4 }}
+spec:
+  minAvailable: {{ .Values.pdb.minAvailable }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ include "crp-inference.name" . }}
+      app.kubernetes.io/instance: {{ .Release.Name }}
+{{- end }}

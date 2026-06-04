@@ -1,0 +1,80 @@
+namespace:
+  create: true
+  name: crp-inference
+
+replicaCount: 2
+
+image:
+  repository: "REPLACE_WITH_INFERENCE_ECR_REPOSITORY_URL"
+  tag: "dev"
+  pullPolicy: IfNotPresent
+
+serviceAccount:
+  create: true
+  name: crp-inference
+  annotations:
+    eks.amazonaws.com/role-arn: "REPLACE_WITH_INFERENCE_SERVICE_ACCOUNT_ROLE_ARN"
+
+model:
+  s3Uri: "s3://REPLACE_WITH_MODEL_BUCKET/models/champion/model.tar.gz"
+  mountPath: "/models"
+  fileName: "model.tar.gz"
+
+redis:
+  host: "REPLACE_WITH_REDIS_PRIMARY_ENDPOINT"
+  port: "6379"
+  existingSecret: "crp-redis-auth"
+  authTokenKey: "REDIS_AUTH_TOKEN"
+  authToken: ""
+
+app:
+  port: 8000
+  logLevel: INFO
+  workers: "2"
+  batchMaxSize: "5000"
+
+resources:
+  requests:
+    cpu: "500m"
+    memory: "1Gi"
+  limits:
+    cpu: "2"
+    memory: "4Gi"
+
+service:
+  type: ClusterIP
+  port: 80
+
+ingress:
+  enabled: true
+  className: alb
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internal
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/healthcheck-path: /health
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
+  hosts:
+    - host: crp-inference.internal
+      paths:
+        - path: /
+          pathType: Prefix
+
+hpa:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+
+pdb:
+  enabled: true
+  minAvailable: 1
+
+probes:
+  readiness:
+    path: /ready
+    initialDelaySeconds: 20
+    periodSeconds: 10
+  liveness:
+    path: /health
+    initialDelaySeconds: 30
+    periodSeconds: 20

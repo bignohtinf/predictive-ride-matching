@@ -1,0 +1,79 @@
+name: Deploy Inference Dev
+
+on:
+  workflow_run:
+    workflows: ["Build Inference Image"]
+    branches: ["main"]
+    types: [completed]
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "Image tag to deploy, for example dev or a short commit SHA"
+        required: true
+        default: "dev"
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AWS_REGION: ${{ vars.AWS_REGION }}
+  AWS_ROLE_ARN: ${{ vars.AWS_ROLE_ARN }}
+  EKS_CLUSTER_NAME: ${{ vars.EKS_CLUSTER_NAME }}
+  INFERENCE_ECR_REPOSITORY_URL: ${{ vars.INFERENCE_ECR_REPOSITORY_URL }}
+  INFERENCE_ROLE_ARN: ${{ vars.INFERENCE_SERVICE_ACCOUNT_ROLE_ARN }}
+  MODEL_S3_URI: ${{ vars.MODEL_S3_URI }}
+  REDIS_HOST: ${{ vars.REDIS_HOST }}
+  REDIS_PORT: ${{ vars.REDIS_PORT }}
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ env.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Update kubeconfig
+        run: |
+          aws eks update-kubeconfig \
+            --region "$AWS_REGION" \
+            --name "$EKS_CLUSTER_NAME"
+
+      - name: Setup Helm
+        uses: azure/setup-helm@v4
+
+      - name: Resolve image tag
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
+            echo "value=${{ github.event.inputs.image_tag }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "value=${{ github.event.workflow_run.head_sha }}" | cut -c1-12 >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Deploy Helm chart
+        run: |
+          helm upgrade --install crp-inference infrastructure/helm/crp-inference \
+            --namespace crp-inference \
+            --create-namespace \
+            -f infrastructure/terraform/environments/dev/inference-values.yaml \
+            --set image.repository="$INFERENCE_ECR_REPOSITORY_URL" \
+            --set image.tag="${{ steps.tag.outputs.value }}" \
+            --set serviceAccount.annotations.eks\.amazonaws\.com/role-arn="$INFERENCE_ROLE_ARN" \
+            --set model.s3Uri="$MODEL_S3_URI" \
+            --set redis.host="$REDIS_HOST" \
+            --set redis.port="$REDIS_PORT" \
+            --set redis.authToken="${{ secrets.REDIS_AUTH_TOKEN }}"
+
+      - name: Verify rollout
+        run: |
+          kubectl rollout status deployment/crp-inference -n crp-inference --timeout=180s
+          kubectl get pods,svc,ingress,hpa -n crp-inference

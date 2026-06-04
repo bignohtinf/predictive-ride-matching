@@ -1,0 +1,6 @@
+apiVersion: v2
+name: crp-inference
+description: CRP model inference service for ride-hailing matching
+version: 0.1.0
+appVersion: "0.1.0"
+type: application

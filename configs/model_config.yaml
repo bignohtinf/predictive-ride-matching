@@ -12,7 +12,7 @@ model:
     min_child_samples: 50
     subsample: 0.8
     colsample_bytree: 0.8
-    scale_pos_weight: 9.0  # ratio of positive/negative
+    # scale_pos_weight: not needed (46/54 near balanced)
     n_estimators: 1000
     early_stopping_rounds: 50
     verbose: -1
@@ -25,7 +25,7 @@ model:
     n_estimators: 1000
     subsample: 0.8
     colsample_bytree: 0.8
-    scale_pos_weight: 9.0
+    # scale_pos_weight: not needed (near balanced)
     early_stopping_rounds: 50
 
   calibration:

@@ -1,0 +1,35 @@
+namespace:
+  create: true
+  name: crp-inference
+
+image:
+  repository: "REPLACE_WITH_TERRAFORM_OUTPUT_inference_ecr_repository_url"
+  tag: "dev"
+
+serviceAccount:
+  name: crp-inference
+  annotations:
+    eks.amazonaws.com/role-arn: "REPLACE_WITH_TERRAFORM_OUTPUT_inference_service_account_role_arn"
+
+model:
+  s3Uri: "s3://REPLACE_WITH_TERRAFORM_OUTPUT_model_bucket_name/models/champion/model.tar.gz"
+
+redis:
+  host: "REPLACE_WITH_TERRAFORM_OUTPUT_redis_primary_endpoint_address"
+  port: "6379"
+  existingSecret: "crp-redis-auth"
+  authTokenKey: "REDIS_AUTH_TOKEN"
+  authToken: "REPLACE_WITH_TERRAFORM_OUTPUT_redis_auth_token"
+
+ingress:
+  enabled: true
+  annotations:
+    alb.ingress.kubernetes.io/scheme: internal
+    alb.ingress.kubernetes.io/target-type: ip
+    alb.ingress.kubernetes.io/healthcheck-path: /health
+    alb.ingress.kubernetes.io/listen-ports: '[{"HTTP": 80}]'
+  hosts:
+    - host: crp-inference.internal
+      paths:
+        - path: /
+          pathType: Prefix

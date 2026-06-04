@@ -1,81 +1,75 @@
-"""Data preprocessing: cleaning, imputation, outlier handling."""
+"""Data preprocessing: loading, cleaning, imputation for CRP dataset."""
 
 import numpy as np
 import pandas as pd
-from loguru import logger
 
 
-def clip_outliers(df: pd.DataFrame, columns: list[str], lower_pct: float = 1, upper_pct: float = 99) -> pd.DataFrame:
-    """Clip outliers at specified percentiles."""
-    df = df.copy()
-    for col in columns:
-        if col in df.columns:
-            lower = np.percentile(df[col].dropna(), lower_pct)
-            upper = np.percentile(df[col].dropna(), upper_pct)
-            df[col] = df[col].clip(lower, upper)
-            logger.info(f"Clipped {col}: [{lower:.2f}, {upper:.2f}]")
-    return df
+# Columns chứa thông tin post-trip (leakage)
+LEAKAGE_COLS = ["est_time_arrival", "est_distance_arrival", "estimate_dropoff_time", "total_pay"]
+# Columns ID không generalizable
+ID_COLS = ["order_id", "matching_batch_id", "driver_id"]
+TARGET = "is_completed"
 
 
-def impute_missing(df: pd.DataFrame, group_cols: list[str] = None) -> pd.DataFrame:
-    """Impute missing values using median, optionally grouped."""
-    df = df.copy()
-    numeric_cols = df.select_dtypes(include=[np.number]).columns
-
-    if group_cols:
-        for col in numeric_cols:
-            if df[col].isna().any():
-                df[col] = df.groupby(group_cols)[col].transform(lambda x: x.fillna(x.median()))
-                # Fallback for groups that are entirely NaN
-                df[col] = df[col].fillna(df[col].median())
-    else:
-        df[numeric_cols] = df[numeric_cols].fillna(df[numeric_cols].median())
-
+def load_data(path: str, sep: str = "\t") -> pd.DataFrame:
+    """Load dataset từ CSV (tab-separated mặc định cho data thật)."""
+    df = pd.read_csv(path, sep=sep, index_col=0)
+    print(f"Loaded: {df.shape[0]:,} rows × {df.shape[1]} columns")
     return df
 
 
 def remove_leakage_features(df: pd.DataFrame) -> pd.DataFrame:
-    """Remove features that leak future information."""
-    leakage_cols = ["est_time_arrival", "est_distance_arrival", "estimate_dropoff_time", "total_pay"]
-    existing = [c for c in leakage_cols if c in df.columns]
+    """Loại bỏ features chỉ biết sau khi cuốc xe diễn ra."""
+    existing = [c for c in LEAKAGE_COLS if c in df.columns]
     if existing:
-        logger.warning(f"Removing leakage features: {existing}")
         df = df.drop(columns=existing)
+        print(f"Dropped leakage: {existing}")
     return df
 
 
-def temporal_train_test_split(
-    df: pd.DataFrame,
-    time_col: str,
-    train_ratio: float = 0.7,
-    val_ratio: float = 0.15,
-) -> tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
-    """Split data temporally (no random shuffle)."""
-    df = df.sort_values(time_col).reset_index(drop=True)
-    n = len(df)
-    train_end = int(n * train_ratio)
-    val_end = int(n * (train_ratio + val_ratio))
-
-    train = df.iloc[:train_end]
-    val = df.iloc[train_end:val_end]
-    test = df.iloc[val_end:]
-
-    logger.info(f"Split sizes - Train: {len(train)}, Val: {len(val)}, Test: {len(test)}")
-    return train, val, test
+def remove_id_columns(df: pd.DataFrame) -> pd.DataFrame:
+    """Loại bỏ ID columns (không dùng cho modeling)."""
+    existing = [c for c in ID_COLS if c in df.columns]
+    if existing:
+        df = df.drop(columns=existing)
+        print(f"Dropped IDs: {existing}")
+    return df
 
 
-def preprocess_pipeline(df: pd.DataFrame, config: dict) -> pd.DataFrame:
-    """Run full preprocessing pipeline."""
-    logger.info(f"Starting preprocessing. Shape: {df.shape}")
+def remove_constant_columns(df: pd.DataFrame) -> pd.DataFrame:
+    """Loại bỏ columns chỉ có 1 giá trị (vd: travel_mode=2 constant)."""
+    constant = [c for c in df.columns if df[c].nunique() <= 1 and c != TARGET]
+    if constant:
+        df = df.drop(columns=constant)
+        print(f"Dropped constant: {constant}")
+    return df
 
+
+def impute_missing(df: pd.DataFrame) -> pd.DataFrame:
+    """Impute missing values.
+
+    eta_std, eda_std: NaN khi chỉ có 1 driver candidate → fill 0 (no variance).
+    """
+    for col in ["eta_std", "eda_std"]:
+        if col in df.columns:
+            n_missing = df[col].isna().sum()
+            if n_missing > 0:
+                df[col] = df[col].fillna(0)
+                print(f"Imputed {col}: {n_missing} NaN → 0")
+    return df
+
+
+def preprocess(df: pd.DataFrame) -> pd.DataFrame:
+    """Full preprocessing pipeline."""
+    df = df.copy()
     df = remove_leakage_features(df)
-
-    outlier_features = config.get("outlier_features", [])
-    pcts = config.get("outlier_clip_percentiles", [1, 99])
-    df = clip_outliers(df, outlier_features, pcts[0], pcts[1])
-
-    group_cols = ["travel_mode", "hour_of_day"] if "travel_mode" in df.columns else None
-    df = impute_missing(df, group_cols=group_cols)
-
-    logger.info(f"Preprocessing done. Shape: {df.shape}")
+    df = remove_id_columns(df)
+    df = remove_constant_columns(df)
+    df = impute_missing(df)
     return df
+
+
+def get_X_y(df: pd.DataFrame) -> tuple[pd.DataFrame, pd.Series]:
+    """Tách features và target."""
+    features = [c for c in df.columns if c != TARGET]
+    return df[features], df[TARGET]

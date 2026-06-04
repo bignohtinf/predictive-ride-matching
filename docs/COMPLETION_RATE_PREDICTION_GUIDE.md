@@ -256,18 +256,12 @@ lightgbm:
   min_child_samples: 50
   subsample: 0.8
   colsample_bytree: 0.8
-  scale_pos_weight: 9.0  # 90/10 imbalance
   early_stopping_rounds: 50
 ```
 
-### 5.3 Class Imbalance (90/10)
+### 5.3 Class Distribution
 
-Dataset có ~90% completed, ~10% cancelled. Cách xử lý:
-
-- `scale_pos_weight = 9.0` trong LightGBM (nặng weight cho minority class)
-- Focal Loss nếu cần focus vào hard-to-classify samples
-- **KHÔNG dùng accuracy** — 90% accuracy = predict tất cả là completed
-- **KHÔNG oversample (SMOTE)** cho tree-based models — không cần thiết, `scale_pos_weight` đủ
+Dataset thực tế: **46.1% completed, 53.9% not completed** — gần balanced. Không cần xử lý class imbalance đặc biệt (không cần scale_pos_weight, SMOTE, hay focal loss). Accuracy vẫn là metric phụ vì không phản ánh chất lượng probability estimation.
 
 ### 5.4 Probability Calibration — Bắt buộc
 
@@ -287,7 +281,7 @@ CRP output phải là **xác suất thực** (well-calibrated) vì matching opti
 | Metric | Tại sao cần | Target |
 |--------|-------------|--------|
 | **AUC-ROC** | Khả năng phân biệt completed vs cancelled, threshold-independent | > 0.80 |
-| **AUC-PR** | Quan trọng hơn ROC khi imbalanced — focus vào minority (cancelled) | > 0.50 cho class 0 |
+| **AUC-PR** | Precision-Recall curve — hữu ích khi cần focus vào precision hoặc recall | > 0.60 |
 | **Log Loss** | Đo chất lượng probability estimation — quan trọng nhất cho ranking | < 0.25 |
 | **ECE** | Calibration quality — probability có đáng tin không | < 0.05 |
 | **Precision@Bottom-K** | Trong top-K dự đoán thấp nhất, bao nhiêu % thực sự cancelled | > 0.30 |

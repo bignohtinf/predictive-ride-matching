@@ -1,0 +1,16 @@
+{{- if .Values.canary.enabled }}
+apiVersion: networking.istio.io/v1beta1
+kind: DestinationRule
+metadata:
+  name: {{ include "crp-inference.fullname" . }}
+  namespace: {{ .Release.Namespace }}
+spec:
+  host: {{ include "crp-inference.fullname" . }}.{{ .Release.Namespace }}.svc.cluster.local
+  subsets:
+    - name: v1
+      labels:
+        app.kubernetes.io/version: v1
+    - name: v2
+      labels:
+        app.kubernetes.io/version: v2
+{{- end }}
