@@ -67,7 +67,7 @@ jobs:
             -f infrastructure/terraform/environments/dev/inference-values.yaml \
             --set image.repository="$INFERENCE_ECR_REPOSITORY_URL" \
             --set image.tag="${{ steps.tag.outputs.value }}" \
-            --set serviceAccount.annotations.eks\.amazonaws\.com/role-arn="$INFERENCE_ROLE_ARN" \
+            --set-string "serviceAccount.annotations.eks\.amazonaws\.com/role-arn=$INFERENCE_ROLE_ARN" \
             --set model.s3Uri="$MODEL_S3_URI" \
             --set redis.host="$REDIS_HOST" \
             --set redis.port="$REDIS_PORT" \
