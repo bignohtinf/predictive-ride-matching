@@ -122,7 +122,7 @@ module "cicd" {
   redis_auth_token                   = module.feature_store.redis_auth_token
   grafana_admin_password             = var.grafana_admin_password
   mlflow_tracking_server_arn         = module.training.mlflow_tracking_server_arn
-  mlflow_tracking_uri                = module.training.mlflow_tracking_server_arn
+  mlflow_tracking_uri                = module.training.mlflow_tracking_server_url
 
   depends_on = [
     module.eks,

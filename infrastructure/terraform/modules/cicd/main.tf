@@ -42,8 +42,7 @@ data "aws_iam_policy_document" "github_assume_role" {
       test     = "StringLike"
       variable = "token.actions.githubusercontent.com:sub"
       values = [
-        "repo:${var.github_repository}:ref:refs/heads/${var.github_branch}",
-        "repo:${var.github_repository}:pull_request"
+        "repo:${var.github_repository}:ref:refs/heads/${var.github_branch}"
       ]
     }
   }
@@ -136,13 +135,14 @@ resource "aws_eks_access_entry" "github_actions" {
   type          = "STANDARD"
 }
 
-resource "aws_eks_access_policy_association" "github_actions_admin" {
+resource "aws_eks_access_policy_association" "github_actions_namespace" {
   cluster_name  = var.cluster_name
   principal_arn = aws_iam_role.github_actions.arn
-  policy_arn    = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSClusterAdminPolicy"
+  policy_arn    = "arn:aws:eks::aws:cluster-access-policy/AmazonEKSAdminPolicy"
 
   access_scope {
-    type = "cluster"
+    type       = "namespace"
+    namespaces = var.deploy_namespaces
   }
 
   depends_on = [aws_eks_access_entry.github_actions]

@@ -25,3 +25,7 @@ output "inference_ecr_repository_arn" {
 output "mlflow_tracking_server_arn" {
   value = aws_sagemaker_mlflow_tracking_server.this.arn
 }
+
+output "mlflow_tracking_server_url" {
+  value = aws_sagemaker_mlflow_tracking_server.this.tracking_server_url
+}

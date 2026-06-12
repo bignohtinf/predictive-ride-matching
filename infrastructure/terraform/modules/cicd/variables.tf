@@ -82,3 +82,9 @@ variable "mlflow_tracking_server_arn" {
 variable "mlflow_tracking_uri" {
   type = string
 }
+
+variable "deploy_namespaces" {
+  description = "Kubernetes namespaces that GitHub Actions can deploy to"
+  type        = list(string)
+  default     = ["crp-inference"]
+}

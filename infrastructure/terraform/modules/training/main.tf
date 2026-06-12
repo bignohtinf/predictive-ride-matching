@@ -197,7 +197,7 @@ resource "aws_sagemaker_mlflow_tracking_server" "this" {
   tracking_server_name = "${var.project}-${var.env}-mlflow"
   artifact_store_uri   = "s3://${var.model_bucket_name}/mlflow-artifacts"
   role_arn             = aws_iam_role.sagemaker_execution.arn
-  mlflow_version       = "2.13.2"
+  mlflow_version       = "2.13"
   tracking_server_size = "Small"
 
   tags = {
