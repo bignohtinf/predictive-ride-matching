@@ -178,16 +178,52 @@ CRP model cần 2 loại features:
 
 Batch features phải được serve với latency < 1ms vì nằm trong critical path của matching pipeline.
 
-### Bạn cần tạo gì?
+### Đã triển khai (2026-06-11)
+
+| Resource | Đã tạo | Config |
+|----------|--------|--------|
+| S3 Bucket | `crp-feature-store-data` | Registry + data sources + staging |
+| Redshift Serverless Namespace | `crp-feast` | DB: `dev`, admin user |
+| Redshift Serverless Workgroup | `crp-feast-wg` | 8 RPU base, publicly accessible |
+| IAM Role | `redshift-s3-feast-role` | Trust: `redshift.amazonaws.com`, Policy: `AmazonS3FullAccess` |
+| Feast Registry | `s3://crp-feature-store-data/registry.db` | AWS provider |
+| Redis (online store) | `localhost:6379` | Local dev; ElastiCache cho production |
+
+### Commands đã chạy để setup
+
+```bash
+# 1. Tạo IAM Role cho Redshift truy cập S3
+aws iam create-role --role-name redshift-s3-feast-role \
+  --assume-role-policy-document '{"Version":"2012-10-17","Statement":[{"Effect":"Allow","Principal":{"Service":"redshift.amazonaws.com"},"Action":"sts:AssumeRole"}]}'
+aws iam attach-role-policy --role-name redshift-s3-feast-role \
+  --policy-arn arn:aws:iam::aws:policy/AmazonS3FullAccess
+
+# 2. Tạo Redshift Serverless
+aws redshift-serverless create-namespace --namespace-name crp-feast \
+  --admin-username admin --admin-user-password "***" \
+  --db-name dev --iam-roles "arn:aws:iam::516909141871:role/redshift-s3-feast-role" \
+  --region ap-southeast-1
+aws redshift-serverless create-workgroup --workgroup-name crp-feast-wg \
+  --namespace-name crp-feast --base-capacity 8 --publicly-accessible \
+  --region ap-southeast-1
+
+# 3. Upload data lên S3
+aws s3 cp src/features/feature_store/data/ s3://crp-feature-store-data/feast/ --recursive
+
+# 4. Feast apply (đăng ký feature definitions)
+cd src/features/feature_store && feast apply
+```
+
+### Bạn cần tạo thêm cho Production
 
 | Resource | Mục đích | Config quan trọng |
 |----------|---------|-------------------|
-| ElastiCache Redis (Replication Group) | Online feature serving | Node type, num nodes, encryption, subnet group |
-| SageMaker Feature Group | Offline feature store (training data) | Record identifier, event time, feature definitions |
+| ElastiCache Redis (Replication Group) | Online feature serving (thay localhost) | Node type, num nodes, encryption, subnet group |
 | Lambda hoặc Glue Job | Compute batch features → push vào Redis | Schedule mỗi 6h, chạy trên data mới nhất |
 
 ### Bạn cần suy nghĩ gì?
 
+- **Redshift Serverless vs Cluster**: Serverless tính tiền per-query (RPU-hours), phù hợp dev/staging. Cluster truyền thống tốn ~$0.25/giờ liên tục nhưng predictable cost cho production.
 - **Redis data model**: Key = `driver:{driver_id}`, Value = hash chứa features. Hay dùng sorted set? Trade-off giữa memory và access pattern.
 - **TTL**: Features nên expire sau bao lâu? `driver_completion_rate_7d` nên TTL = 24h (refresh daily). Nếu miss cache → dùng default value.
 - **Redis cluster mode vs replication mode**: Cluster mode shards data → scale horizontally. Replication mode = read replicas → scale reads. Với 7.6M records, dataset features fit in memory (ước tính: 500K unique drivers × 10 features × 8 bytes ≈ 40MB). Replication mode đủ.
@@ -196,7 +232,7 @@ Batch features phải được serve với latency < 1ms vì nằm trong critica
 
 ### Keywords để research
 
-`elasticache redis terraform`, `elasticache replication group`, `redis data modeling features`, `sagemaker feature group terraform`, `feature store architecture patterns`
+`elasticache redis terraform`, `redshift serverless feast`, `elasticache replication group`, `redis data modeling features`, `feast redshift offline store`, `feature store architecture patterns`
 
 ---
 

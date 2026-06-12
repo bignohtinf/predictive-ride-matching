@@ -12,8 +12,13 @@ TARGET = "is_completed"
 
 
 def load_data(path: str, sep: str = "\t") -> pd.DataFrame:
-    """Load dataset từ CSV (tab-separated mặc định cho data thật)."""
-    df = pd.read_csv(path, sep=sep, index_col=0)
+    """Load dataset từ CSV hoặc Parquet."""
+    if path.endswith(".parquet"):
+        df = pd.read_parquet(path)
+        if "Unnamed: 0" in df.columns:
+            df = df.drop(columns=["Unnamed: 0"])
+    else:
+        df = pd.read_csv(path, sep=sep, index_col=0)
     print(f"Loaded: {df.shape[0]:,} rows × {df.shape[1]} columns")
     return df
 
@@ -27,12 +32,20 @@ def remove_leakage_features(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
-def remove_id_columns(df: pd.DataFrame) -> pd.DataFrame:
-    """Loại bỏ ID columns (không dùng cho modeling)."""
-    existing = [c for c in ID_COLS if c in df.columns]
-    if existing:
-        df = df.drop(columns=existing)
-        print(f"Dropped IDs: {existing}")
+def remove_id_columns(df: pd.DataFrame, keep_driver_id: bool = False) -> pd.DataFrame:
+    """Loại bỏ ID columns (không dùng cho modeling).
+
+    Args:
+        keep_driver_id: Giữ driver_id cho aggregation features (dataset lớn)
+    """
+    cols_to_drop = [c for c in ID_COLS if c in df.columns]
+    if keep_driver_id and "driver_id" in cols_to_drop:
+        cols_to_drop.remove("driver_id")
+    if cols_to_drop:
+        df = df.drop(columns=cols_to_drop)
+        print(f"Dropped IDs: {cols_to_drop}")
+    if keep_driver_id and "driver_id" in df.columns:
+        print(f"Kept driver_id for aggregation")
     return df
 
 
@@ -59,13 +72,38 @@ def impute_missing(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+def fix_negative_waiting_time(df: pd.DataFrame) -> pd.DataFrame:
+    """Xử lý outlier: user_waiting_time_seconds âm → thay bằng median non-negative.
+
+    Các giá trị âm (~-870 đến -898s) là data quality issue (clock skew hoặc
+    pipeline error), không phải thời gian chờ thực tế. Thay bằng median thay
+    vì clip về 0 để tránh tạo ra nhóm giả "chờ 0 giây".
+    """
+    col = "user_waiting_time_seconds"
+    if col not in df.columns:
+        return df
+
+    mask_neg = df[col] < 0
+    n_neg = mask_neg.sum()
+    if n_neg > 0:
+        median_val = df.loc[~mask_neg, col].median()
+        df.loc[mask_neg, col] = median_val
+        print(f"Imputed {col}: {n_neg} giá trị âm → median ({median_val:.1f}s)")
+    return df
+
+
 def preprocess(df: pd.DataFrame) -> pd.DataFrame:
-    """Full preprocessing pipeline."""
+    """Full preprocessing pipeline. Auto-detect dataset size for driver_id handling."""
     df = df.copy()
     df = remove_leakage_features(df)
-    df = remove_id_columns(df)
+
+    # Dataset lớn (>10K): giữ driver_id cho aggregation features
+    keep_driver = len(df) > 10000 and "driver_id" in df.columns
+    df = remove_id_columns(df, keep_driver_id=keep_driver)
+
     df = remove_constant_columns(df)
     df = impute_missing(df)
+    df = fix_negative_waiting_time(df)
     return df
 
 

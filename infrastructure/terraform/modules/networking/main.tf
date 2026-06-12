@@ -24,8 +24,9 @@ resource "aws_subnet" "public" {
     map_public_ip_on_launch = true
 
     tags = {
-        Name = "${var.project}-${var.env}-public-${count.index + 1}"
-        Type = "public"
+        Name                     = "${var.project}-${var.env}-public-${count.index + 1}"
+        Type                     = "public"
+        "kubernetes.io/role/elb" = "1"
     }
 }
 
@@ -35,10 +36,16 @@ resource "aws_subnet" "private" {
     cidr_block = var.private_subnet_cidrs[count.index]
     availability_zone = var.azs[count.index]
 
-    tags = {
-        Name = "${var.project}-${var.env}-private-${count.index + 1}"
-        Type = "private"
-    }
+    tags = merge(
+        {
+            Name                              = "${var.project}-${var.env}-private-${count.index + 1}"
+            Type                              = "private"
+            "kubernetes.io/role/internal-elb" = "1"
+        },
+        var.cluster_name != "" ? {
+            "kubernetes.io/cluster/${var.cluster_name}" = "owned"
+        } : {}
+    )
 }
 
 resource "aws_eip" "nat" {

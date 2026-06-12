@@ -20,6 +20,9 @@ module "networking" {
         "10.0.11.0/24",
         "10.0.12.0/24"
     ]
+
+    # Required để tag subnets đúng cách cho EKS node discovery
+    cluster_name = "${var.project}-${var.env}-eks"
 }
 
 module "data_lake" {
@@ -34,11 +37,15 @@ module "eks" {
   env     = var.env
   vpc_id             = module.networking.vpc_id
   private_subnet_ids = module.networking.private_subnet_ids
-  cluster_version = "1.34"
+  cluster_version = "1.33"  # TODO: upgrade tiếp lên 1.34 sau khi 1.33 ACTIVE
   node_instance_types = ["t3.medium"]
   node_min_size = 1
   node_desired_size = 1
   node_max_size = 2
+  create_node_groups = var.create_node_groups
+  # local_admin_arn auto-detected from caller identity.
+  # Set explicitly only if you need a DIFFERENT user to also have admin access.
+  # Example: local_admin_arn = "arn:aws:iam::516909141871:role/some-other-role"
 }
 
 module "eks_addons" {
@@ -51,6 +58,7 @@ module "eks_addons" {
   oidc_provider_arn = module.eks.oidc_provider_arn
   depends_on = [module.eks]
 }
+
 
 module "feature_store" {
   source = "../../modules/feature-store"

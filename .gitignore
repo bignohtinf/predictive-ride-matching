@@ -48,3 +48,28 @@ logs/
 CLAUDE.md
 
 docs/*
+
+predict-ride-user_accessKeys.csv
+predict-ride-user_credentials.csv
+
+feature_store_roadmap.md
+error_log.txt
+
+# MLflow
+mlflow.db
+mlruns/
+
+# Terraform extras
+.terraform.lock.hcl
+*.tfstate.*.backup
+
+# AWS sensitive
+trust-policy.json
+
+# Binary / build artifacts
+*.zip
+completion_rate_prediction_design_doc.docx
+
+# Temp output
+infrastructure/terraform/environments/dev/k8s.txt
+infrastructure/terraform/environments/dev/nodes.txt

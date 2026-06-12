@@ -1,0 +1,18 @@
+project: crp_feature_store
+provider: aws
+registry: s3://crp-feature-store-data/registry.db
+
+offline_store:
+  type: redshift
+  workgroup: crp-feast-wg
+  database: dev
+  region: ap-southeast-1
+  user: admin
+  s3_staging_location: s3://crp-feature-store-data/feast-staging/
+  iam_role: arn:aws:iam::516909141871:role/redshift-s3-feast-role
+
+online_store:
+  type: redis
+  connection_string: localhost:6379
+
+entity_key_serialization_version: 3

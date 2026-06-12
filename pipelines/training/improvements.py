@@ -44,12 +44,14 @@ N_EST = 500
 # ═══════════════════════════════════════════════════════════════
 
 def prepare_data(data_path: str, sep: str = "\t"):
-    """Load, preprocess, feature engineer. Returns X, y."""
+    """Load, preprocess, feature engineer. Returns X, y, driver_ids."""
     df = load_data(data_path, sep=sep)
+    # Lưu driver_id trước khi preprocess drop nó
+    driver_ids = df["driver_id"].copy() if "driver_id" in df.columns else None
     df = preprocess(df)
     df = build_features(df)
     X, y = get_X_y(df)
-    return X, y
+    return X, y, driver_ids
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -99,7 +101,7 @@ def eval_models(X, y, models: dict, cv) -> dict:
 def run_all_experiments(data_path: str, sep: str = "\t"):
     """Run all experiments and return comparison DataFrame."""
 
-    X_base, y = prepare_data(data_path, sep)
+    X_base, y, driver_ids = prepare_data(data_path, sep)
     all_results = {}
 
     # ── EXP 0: BASELINE ──
@@ -213,6 +215,37 @@ def run_all_experiments(data_path: str, sep: str = "\t"):
         print("  optuna not installed. pip install optuna")
         best_params = None
 
+    # ── EXP 4: + DRIVER_ID CV TARGET ENCODING ──
+    if driver_ids is not None and len(X_base) > 10000:
+        print("\n" + "=" * 60)
+        print("EXP 4: + Driver ID CV Target Encoding (smoothing=30)")
+        print("=" * 60)
+
+        # Thêm driver_id tạm vào X để tính target encoding
+        X_drv = X_base.copy()
+        X_drv["_driver_id"] = driver_ids.values
+
+        driver_te = add_target_encoding_cv(X_drv, y, "_driver_id", CV, smoothing=30)
+        X_drv["driver_completion_rate_cv"] = driver_te
+
+        # Tính driver order count (không leak — chỉ count, không dùng target)
+        driver_counts = driver_ids.value_counts()
+        X_drv["driver_order_count"] = driver_ids.map(driver_counts).values
+
+        X_drv = X_drv.drop(columns=["_driver_id"])
+        print(f"  Added: driver_completion_rate_cv, driver_order_count")
+
+        exp4 = eval_models(X_drv, y, {
+            "LightGBM": create_lgb(N_EST),
+            "XGBoost": create_xgb(N_EST),
+            "RandomForest": create_rf(),
+        }, CV)
+
+        for name, metrics in exp4.items():
+            all_results[f"DriverTE_{name}"] = metrics
+    else:
+        print("\n  Skipped EXP 4 (no driver_id or dataset too small)")
+
     # ── COMPARISON ──
     print("\n" + "=" * 60)
     print("FINAL COMPARISON")
@@ -228,5 +261,5 @@ def run_all_experiments(data_path: str, sep: str = "\t"):
 
 
 if __name__ == "__main__":
-    data_path = PROJECT_ROOT / "data" / "raw" / "Completion_prediction__dataset__hashing.csv"
+    data_path = PROJECT_ROOT / "data" / "raw" / "Completion_prediction__dataset__hashing_500k.parquet"
     run_all_experiments(str(data_path))

@@ -1,5 +1,6 @@
 locals {
   github_oidc_url = "https://token.actions.githubusercontent.com"
+  repo_name = split("/", var.github_repository)[1]
 }
 
 resource "aws_iam_openid_connect_provider" "github" {
@@ -10,9 +11,7 @@ resource "aws_iam_openid_connect_provider" "github" {
   ]
 
   # GitHub Actions OIDC thumbprint. Re-check before production hardening.
-  thumbprint_list = [
-    "6938fd4d98bab03faadb97b34396831e3780aea1"
-  ]
+  thumbprint_list = []
 
   tags = {
     Project = var.project
@@ -101,7 +100,7 @@ resource "aws_iam_role_policy" "github_actions" {
         Action = [
           "eks:DescribeCluster"
         ]
-        Resource = "*"
+        Resource = "arn:aws:eks:${var.aws_region}:*:cluster/${var.cluster_name}"
       },
       {
         Sid    = "MLflowTracking"
@@ -149,79 +148,74 @@ resource "aws_eks_access_policy_association" "github_actions_admin" {
   depends_on = [aws_eks_access_entry.github_actions]
 }
 
-# ---------------------------------------------------------------------------
-# GitHub Actions — tự động set vars và secrets sau terraform apply
-# Provider "github" cần GITHUB_TOKEN env var hoặc token trong providers.tf
-# ---------------------------------------------------------------------------
-
 resource "github_actions_variable" "aws_region" {
-  repository    = split("/", var.github_repository)[1]
+  repository    = local.repo_name
   variable_name = "AWS_REGION"
   value         = var.aws_region
 }
 
 resource "github_actions_variable" "aws_role_arn" {
-  repository    = split("/", var.github_repository)[1]
+  repository    = local.repo_name
   variable_name = "AWS_ROLE_ARN"
   value         = aws_iam_role.github_actions.arn
 }
 
 resource "github_actions_variable" "eks_cluster_name" {
-  repository    = split("/", var.github_repository)[1]
+  repository    = local.repo_name
   variable_name = "EKS_CLUSTER_NAME"
   value         = var.cluster_name
 }
 
 resource "github_actions_variable" "inference_ecr_repository_url" {
-  repository    = split("/", var.github_repository)[1]
+  repository    = local.repo_name
   variable_name = "INFERENCE_ECR_REPOSITORY_URL"
   value         = var.inference_ecr_repository_url
 }
 
 resource "github_actions_variable" "training_ecr_repository_url" {
-  repository    = split("/", var.github_repository)[1]
+  repository    = local.repo_name
   variable_name = "TRAINING_ECR_REPOSITORY_URL"
   value         = var.training_ecr_repository_url
 }
 
 resource "github_actions_variable" "inference_service_account_role_arn" {
-  repository    = split("/", var.github_repository)[1]
+  repository    = local.repo_name
   variable_name = "INFERENCE_SERVICE_ACCOUNT_ROLE_ARN"
   value         = var.inference_service_account_role_arn
 }
 
 resource "github_actions_variable" "model_s3_uri" {
-  repository    = split("/", var.github_repository)[1]
+  repository    = local.repo_name
   variable_name = "MODEL_S3_URI"
   value         = var.model_s3_uri
 }
 
 resource "github_actions_variable" "redis_host" {
-  repository    = split("/", var.github_repository)[1]
+  repository    = local.repo_name
   variable_name = "REDIS_HOST"
   value         = var.redis_host
 }
 
 resource "github_actions_variable" "redis_port" {
-  repository    = split("/", var.github_repository)[1]
+  repository    = local.repo_name
   variable_name = "REDIS_PORT"
   value         = var.redis_port
 }
 
 resource "github_actions_secret" "redis_auth_token" {
-  repository      = split("/", var.github_repository)[1]
+  repository      = local.repo_name
   secret_name     = "REDIS_AUTH_TOKEN"
-  plaintext_value = var.redis_auth_token
+  value = var.redis_auth_token
 }
 
 resource "github_actions_secret" "grafana_admin_password" {
-  repository      = split("/", var.github_repository)[1]
+  repository      = local.repo_name
   secret_name     = "GRAFANA_ADMIN_PASSWORD"
-  plaintext_value = var.grafana_admin_password
+  value = var.grafana_admin_password
 }
 
 resource "github_actions_variable" "mlflow_tracking_uri" {
-  repository    = split("/", var.github_repository)[1]
+  repository    = local.repo_name
   variable_name = "MLFLOW_TRACKING_URI"
   value         = var.mlflow_tracking_uri
 }

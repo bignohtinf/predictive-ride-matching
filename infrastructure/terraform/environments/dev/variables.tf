@@ -30,3 +30,15 @@ variable "grafana_admin_password" {
   type        = string
   sensitive   = true
 }
+
+variable "create_node_groups" {
+  description = "Tạo EKS managed node groups. Set false chỉ khi cần deploy cluster trống (phase 1 bootstrap)."
+  type        = bool
+  default     = true
+}
+
+variable "local_admin_arn" {
+  description = "Optional: ARN of additional IAM principal for cluster admin. Null = chỉ dùng caller identity."
+  type        = string
+  default     = null
+}

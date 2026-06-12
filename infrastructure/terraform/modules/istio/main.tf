@@ -35,22 +35,23 @@ resource "helm_release" "istio_ingressgateway" {
   chart      = "gateway"
   version    = var.istio_chart_version
 
-  wait = true
+  wait             = false  # LoadBalancer provisioning is async — don't block apply
+  timeout          = 600
+  replace          = true   # Force replace failed release
+  cleanup_on_fail  = true   # Auto-cleanup on failure to avoid stuck state
 
-  set = [
-    {
-      name  = "service.type"
-      value = "LoadBalancer"
-    },
-    {
-      name  = "service.annotations.service\\.beta\\.kubernetes\\.io/aws-load-balancer-type"
-      value = "external"
-    },
-    {
-      name  = "service.annotations.service\\.beta\\.kubernetes\\.io/aws-load-balancer-scheme"
-      value = "internal"
-    }
-  ]
+  set {
+    name  = "service.type"
+    value = "LoadBalancer"
+  }
+  set {
+    name  = "service.annotations.service\\.beta\\.kubernetes\\.io/aws-load-balancer-type"
+    value = "external"
+  }
+  set {
+    name  = "service.annotations.service\\.beta\\.kubernetes\\.io/aws-load-balancer-scheme"
+    value = "internal"
+  }
 
   depends_on = [
     helm_release.istiod
